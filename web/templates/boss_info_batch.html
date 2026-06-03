@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Batch Import BOSS Info{% endblock %}
+{% block content %}
+<h4 class="mb-3"><i class="bi bi-upload"></i> Batch Import BOSS Info</h4>
+<div class="alert alert-info">
+    Paste CSV (first line is header) or JSON array. Required column: <code>boss_name</code>. Optional: <code>boss_number, map_name, level, route, is_weekly, week_number, notes</code>.
+</div>
+<form method="post" class="card p-3">
+    <textarea name="data" class="form-control" rows="18" placeholder="CSV example:&#10;boss_name,boss_number,map_name,level,route,is_weekly&#10;司徒一一,1,龙门荒漠,95,主城传送点出发,1&#10;&#10;or JSON:&#10;[{&quot;boss_name&quot;: &quot;司徒一一&quot;, &quot;boss_number&quot;: 1, &quot;map_name&quot;: &quot;龙门荒漠&quot;}]"></textarea>
+    <div class="mt-3">
+        <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Import</button>
+        <a href="{{ url_for('boss_info_list') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</form>
+{% endblock %}
