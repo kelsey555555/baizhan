@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}BOSS Info{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-map"></i> BOSS Info (地图/编号)</h4>
+    <div>
+        <a href="{{ url_for('boss_info_batch') }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-upload"></i> Batch Import</a>
+        <a href="{{ url_for('boss_info_new') }}" class="btn btn-primary btn-sm"><i class="bi bi-plus"></i> Add</a>
+    </div>
+</div>
+<form method="get" class="mb-3">
+    <div class="input-group">
+        <input type="text" name="q" class="form-control" placeholder="Search by name or map" value="{{ q }}">
+        <button class="btn btn-primary"><i class="bi bi-search"></i></button>
+        {% if q %}<a href="{{ url_for('boss_info_list') }}" class="btn btn-outline-secondary">Clear</a>{% endif %}
+    </div>
+</form>
+
+{% if bosses %}
+<div class="row g-3">
+    {% for b in bosses %}
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h5 class="mb-0">
+                        {% if b.boss_number %}<span class="badge bg-primary">#{{ b.boss_number }}</span>{% endif %}
+                        {{ b.boss_name }}
+                    </h5>
+                    {% if b.is_weekly %}<span class="badge bg-danger">本周</span>{% endif %}
+                </div>
+                {% if b.map_name %}<p class="mb-1"><i class="bi bi-geo-alt"></i> <strong>Map:</strong> {{ b.map_name }}</p>{% endif %}
+                {% if b.level %}<p class="mb-1 small text-muted"><i class="bi bi-bar-chart"></i> Level: {{ b.level }}</p>{% endif %}
+                {% if b.refresh_time %}<p class="mb-1 small text-muted"><i class="bi bi-clock"></i> {{ b.refresh_time }}</p>{% endif %}
+                {% if b.route %}<p class="mb-1 small"><strong>Route:</strong> {{ b.route }}</p>{% endif %}
+                {% if b.week_number %}<p class="mb-1 small text-muted">Week: {{ b.week_number }}</p>{% endif %}
+                {% if b.notes %}<p class="mb-0 small text-muted"><em>{{ b.notes }}</em></p>{% endif %}
+            </div>
+            <div class="card-footer text-end">
+                <a href="{{ url_for('boss_info_edit', bid=b.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+                <button class="btn btn-sm btn-outline-danger btn-del" data-id="{{ b.id }}" data-name="{{ b.boss_name }}"><i class="bi bi-trash"></i></button>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center text-muted py-5">
+    <i class="bi bi-inbox" style="font-size:48px"></i>
+    <p class="mt-2">No boss info yet. <a href="{{ url_for('boss_info_new') }}">Add one</a> or <a href="{{ url_for('boss_info_batch') }}">batch import</a>.</p>
+</div>
+{% endif %}
+
+<div class="modal fade" id="delModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">Delete boss info for <strong id="delName"></strong>?</div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-danger" id="btnDelConfirm">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+let delId = null;
+document.querySelectorAll('.btn-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+        delId = btn.dataset.id;
+        document.getElementById('delName').textContent = btn.dataset.name;
+        new bootstrap.Modal(document.getElementById('delModal')).show();
+    });
+});
+document.getElementById('btnDelConfirm').addEventListener('click', async () => {
+    if (!delId) return;
+    const r = await fetch('/boss-info/' + delId + '/delete', {method: 'POST'});
+    if (r.ok) {
+        toast('Deleted', 'success');
+        setTimeout(() => location.reload(), 600);
+    } else { toast('Failed', 'error'); }
+    bootstrap.Modal.getInstance(document.getElementById('delModal')).hide();
+});
+</script>
+{% endblock %}
