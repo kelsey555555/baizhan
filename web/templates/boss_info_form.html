@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if boss else 'Add' }} BOSS Info{% endblock %}
+{% block content %}
+<h4 class="mb-3">{{ 'Edit' if boss else 'Add' }} BOSS Info</h4>
+<form method="post" class="card p-4 shadow-sm">
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label">BOSS Name *</label>
+            <input type="text" name="boss_name" class="form-control" required value="{{ boss.boss_name if boss else '' }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Number</label>
+            <input type="number" name="boss_number" class="form-control" value="{{ boss.boss_number if boss else '' }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Level</label>
+            <input type="number" name="level" class="form-control" value="{{ boss.level if boss else '' }}">
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="is_weekly" id="is_weekly" {{ 'checked' if boss and boss.is_weekly else '' }}>
+                <label class="form-check-label" for="is_weekly">本周</label>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <label class="form-label">Map Name</label>
+            <input type="text" name="map_name" class="form-control" placeholder="e.g. 龙门荒漠" value="{{ boss.map_name if boss else '' }}">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Map URL</label>
+            <input type="text" name="map_url" class="form-control" value="{{ boss.map_url if boss else '' }}">
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Refresh Time</label>
+            <input type="text" name="refresh_time" class="form-control" placeholder="e.g. 每周一刷新" value="{{ boss.refresh_time if boss else '' }}">
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Week Number</label>
+            <input type="text" name="week_number" class="form-control" placeholder="e.g. 2026-W22" value="{{ boss.week_number if boss else '' }}">
+        </div>
+        <div class="col-12">
+            <label class="form-label">Route / 推荐路线</label>
+            <textarea name="route" class="form-control" rows="2" placeholder="从哪里进入，怎么走...">{{ boss.route if boss else '' }}</textarea>
+        </div>
+        <div class="col-12">
+            <label class="form-label">Notes</label>
+            <textarea name="notes" class="form-control" rows="2">{{ boss.notes if boss else '' }}</textarea>
+        </div>
+        <div class="col-12">
+            <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Save</button>
+            <a href="{{ url_for('boss_info_list') }}" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+    </div>
+</form>
+{% endblock %}
