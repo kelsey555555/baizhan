@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}批量设置 CD{% endblock %}
+{% block content %}
+<h4 class="mb-3"><i class="bi bi-check2-square"></i> 批量设置本周 CD</h4>
+<form method="post" id="batchForm">
+    <div class="card p-3 mb-3">
+        <div class="d-flex gap-3 align-items-center mb-3 flex-wrap">
+            <label class="form-label mb-0 fw-bold">设置 CD 为:</label>
+            <div class="form-check"><input class="form-check-input" type="radio" name="cd" value="0" id="cd0" checked><label class="form-check-label" for="cd0">未打 (0)</label></div>
+            <div class="form-check"><input class="form-check-input" type="radio" name="cd" value="1" id="cd1"><label class="form-check-label" for="cd1">已打 (1)</label></div>
+            <div class="ms-auto">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="selAll(true)">全选</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="selAll(false)">全不选</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="selInvert()">反选</button>
+            </div>
+        </div>
+        <div class="row g-2">
+        {% for c in characters %}
+            <div class="col-md-4 col-lg-3">
+                <div class="border rounded p-2 d-flex align-items-center">
+                    <input class="form-check-input me-2 char-check" type="checkbox" name="char_ids" value="{{ c.id }}" id="ch{{ c.id }}">
+                    <label class="flex-grow-1" for="ch{{ c.id }}">
+                        <div><strong>{{ c.name }}</strong></div>
+                        <small class="text-muted">{{ c.server }} · {{ c.owner or '-' }} {% if c.is_CD %}<span class="badge bg-success">已打</span>{% else %}<span class="badge bg-warning text-dark">未打</span>{% endif %}</small>
+                    </label>
+                </div>
+            </div>
+        {% endfor %}
+        </div>
+    </div>
+    <button type="submit" class="btn btn-primary" onclick="return confirm('确定要批量修改所选角色的本周 CD 吗？');"><i class="bi bi-check-lg"></i> 应用</button>
+    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">取消</a>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+function selAll(v) { document.querySelectorAll('.char-check').forEach(c => c.checked = v); }
+function selInvert() { document.querySelectorAll('.char-check').forEach(c => c.checked = !c.checked); }
+</script>
+{% endblock %}
