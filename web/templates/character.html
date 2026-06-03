@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}{{ char.name }} - 角色详情{% endblock %}
+{% block content %}
+<style>
+:root { --skill-collected: #d3f9d8; --skill-missing: #fff5f5; --border-color: #dee2e6; --card-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.char-header-card { background: #fff; border-radius: 8px; box-shadow: var(--card-shadow); padding: 20px 24px; margin-bottom: 16px; }
+.char-header-card h3 { margin-bottom: 4px; }
+.char-stats { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.char-stats .stat-item { display: flex; align-items: center; gap: 4px; font-size: 13px; color: #495057; }
+.boss-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; padding: 12px 16px; background: #fff; border-radius: 8px; box-shadow: var(--card-shadow); }
+.boss-toolbar .form-control-sm { width: auto; min-width: 200px; flex: 1; }
+.boss-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 12px; }
+.boss-card { background: #fff; border-radius: 8px; box-shadow: var(--card-shadow); overflow: hidden; }
+.boss-card-header { padding: 10px 14px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; }
+.boss-card-header .boss-stats { font-weight: 400; font-size: 12px; color: #868e96; }
+.boss-card-header .boss-stats .collected { color: #2b8a3e; font-weight: 600; }
+.boss-skills { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px; }
+.skill-chip { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-color); min-width: 64px; position: relative; cursor: default; transition: all .15s; }
+.skill-chip:hover { border-color: #339af0; box-shadow: 0 0 0 2px rgba(51,154,240,.15); }
+.skill-chip .skill-level { position: absolute; top: -6px; right: -6px; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 8px; color: #fff; z-index: 1; }
+.skill-chip .skill-level.t10 { background: #e74c3c; }
+.skill-chip .skill-level.t9 { background: #339af0; }
+.skill-chip .skill-level.t8 { background: #868e96; }
+.skill-chip .skill-name { font-size: 12px; font-weight: 500; white-space: nowrap; max-width: 72px; overflow: hidden; text-overflow: ellipsis; }
+.skill-chip .skill-status { font-size: 10px; margin-top: 1px; }
+.skill-chip.collected { background: var(--skill-collected); border-color: #69db7c; }
+.skill-chip.collected .skill-status { color: #2b8a3e; }
+.skill-chip.missing { background: var(--skill-missing); border-color: #ffc9c9; }
+.skill-chip.missing .skill-status { color: #c92a2a; }
+.skill-chip.no-char { background: #f8f9fa; }
+.loading { text-align: center; padding: 60px; color: #868e96; }
+.loading .spinner { display: inline-block; width: 32px; height: 32px; border: 3px solid #dee2e6; border-top-color: #339af0; border-radius: 50%; animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.summary-bar { display: flex; gap: 16px; flex-wrap: wrap; padding: 12px 16px; background: #f8f9fa; border-radius: 8px; margin-bottom: 16px; }
+.summary-item { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.summary-item .num { font-weight: 700; font-size: 18px; }
+.summary-item .num.green { color: #2b8a3e; }
+.summary-item .num.red { color: #c92a2a; }
+.summary-item .num.blue { color: #339af0; }
+</style>
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{{ url_for('index') }}">角色</a></li>
+    <li class="breadcrumb-item active">{{ char.name }}</li>
+  </ol>
+</nav>
+<div class="char-header-card">
+  <div class="d-flex justify-content-between align-items-start">
+    <div>
+      <h3 class="mb-1">{{ char.name }}</h3>
+      <div class="char-stats">
+        <span class="stat-item"><i class="bi bi-server"></i> {{ char.server }}</span>
+        {% if char.owner %}<span class="stat-item"><i class="bi bi-person-badge"></i> {{ char.owner }}</span>{% endif %}
+        <span class="stat-item"><i class="bi bi-lightning-charge"></i> 精 {{ char.essence }}</span>
+        <span class="stat-item"><i class="bi bi-shield"></i> 耐 {{ char.stamina }}</span>
+        {% if char.is_dps %}<span class="badge bg-danger">DPS</span>{% endif %}
+        {% if char.is_n %}<span class="badge bg-success">奶</span>{% endif %}
+        <span class="stat-item">{{ '✅ 已打' if char.is_CD else '⏳ 未打' }}</span>
+      </div>
+    </div>
+    <div>
+      <a href="{{ url_for('character_edit', cid=char.id) }}" class="btn btn-primary btn-sm"><i class="bi bi-pencil"></i> 编辑</a>
+      <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> 返回</a>
+    </div>
+  </div>
+</div>
+<div class="boss-toolbar">
+  <input type="text" class="form-control form-control-sm" id="searchInput" placeholder="筛选BOSS、技能...">
+  <span class="small text-muted" id="statusText"></span>
+</div>
+<div id="summaryBar" class="summary-bar" style="display:none"></div>
+<div id="bossGrid" class="boss-grid">
+  <div class="loading"><div class="spinner"></div><div class="mt-2">加载角色技能数据...</div></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const CHAR_ID = {{ char.id }};
+let allBosses = [], searchValue = '';
+document.getElementById('searchInput').addEventListener('input', function() { searchValue = this.value; renderBosses(); });
+function matchSearch(text) { if (!searchValue) return true; return text.toLowerCase().includes(searchValue.toLowerCase()); }
+function renderBosses() {
+  const grid = document.getElementById('bossGrid');
+  let filtered = allBosses;
+  if (searchValue) {
+    filtered = filtered.map(b => { const skills = b.skills.filter(s => matchSearch(s.skill_name)); if (skills.length > 0 || matchSearch(b.boss_name)) return { ...b, skills: skills }; return null; }).filter(Boolean);
+  }
+  if (filtered.length === 0) { grid.innerHTML = '<div class="text-center text-muted py-5">无匹配的BOSS或技能</div>'; document.getElementById('statusText').textContent = ''; return; }
+  let totalCollected = 0, totalSkills = 0, totalBossCollected = 0;
+  filtered.forEach(b => { totalCollected += b.collected_count; totalSkills += b.total_skills; if (b.collected_count === b.total_skills) totalBossCollected++; });
+  document.getElementById('statusText').textContent = filtered.length + '个BOSS · ' + totalCollected + '/' + totalSkills + ' 技能';
+  document.getElementById('summaryBar').style.display = 'flex';
+  document.getElementById('summaryBar').innerHTML = '<div class="summary-item"><span class="num green">' + totalCollected + '</span> 已收集</div><div class="summary-item"><span class="num red">' + (totalSkills - totalCollected) + '</span> 缺失</div><div class="summary-item"><span class="num blue">' + totalBossCollected + '/' + filtered.length + '</span> BOSS毕业</div>';
+  grid.innerHTML = filtered.map(b => {
+    let skillsHtml = b.skills.map(s => {
+      const showLv = s.char_level || s.skill_level || s.tier || 0;
+      let levelClass = 't' + (showLv >= 10 ? 10 : showLv >= 9 ? 9 : 8);
+      let chipClass = 'no-char'; let statusHtml = '';
+      if (s.collected) { chipClass = 'collected'; if (s.unlearnable) statusHtml = '<span class="skill-status" style="color:#e03131">不可学</span>'; }
+      else { chipClass = 'missing'; statusHtml = '<span class="skill-status">❌ 缺失</span>'; }
+      const colorStyle = s.color && s.color !== '-' ? 'border-left:3px solid ' + getColor(s.color) + ';' : '';
+      return '<div class="skill-chip ' + chipClass + '" style="' + colorStyle + '"><span class="skill-level ' + levelClass + '">' + showLv + '重</span><span class="skill-name">' + s.skill_name + '</span>' + statusHtml + '</div>';
+    }).join('');
+    return '<div class="boss-card"><div class="boss-card-header"><span>' + b.boss_name + '</span><span class="boss-stats"><span class="collected">' + b.collected_count + '</span>/' + b.total_skills + ' 已收集</span></div><div class="boss-skills">' + skillsHtml + '</div></div>';
+  }).join('');
+}
+function getColor(colorName) { const map = {'黄色':'#ffd43b','绿色':'#51cf66','蓝色':'#339af0','紫色':'#9775fa','橙色':'#ff922b','红色':'#ff6b6b','白色':'#dee2e6','黑色':'#212529'}; return map[colorName] || '#dee2e6'; }
+(async function init() {
+  const r = await fetch('/api/char/' + CHAR_ID + '/boss-skills');
+  const j = await r.json();
+  if (!j.ok) { document.getElementById('bossGrid').innerHTML = '<div class="text-center text-muted py-5">加载失败: ' + (j.error || '未知错误') + '</div>'; return; }
+  allBosses = j.bosses; renderBosses();
+})();
+</script>
+{% endblock %}
