@@ -1,0 +1,8 @@
+﻿*.pyc
+__pycache__/
+*.log
+web/uploads/*
+data/bai_zhan.db
+.venv/
+venv/
+.env
