@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Sync jx3box (Disabled){% endblock %}
+{% block content %}
+<div class="alert alert-warning">
+    <i class="bi bi-pause-circle"></i> <strong>同步 jx3box 数据功能已下线</strong>
+    <hr>
+    <p class="mb-2">此功能已暂时停用。请通过以下方式维护 BOSS 数据：</p>
+    <ol>
+        <li><a href="/weekly-bosses">本周 BOSS 管理</a> - 手动配置本周 BOSS 列表（带 9/10 阶）</li>
+        <li><a href="/boss-info">BOSS 地图管理</a> - 编辑 BOSS 名字、地图、路线等</li>
+        <li><a href="/bosses">BOSS 技能</a> - 查看所有 BOSS 掉落</li>
+    </ol>
+</div>
+{% endblock %}
