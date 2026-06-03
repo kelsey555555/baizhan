@@ -1,0 +1,198 @@
+﻿{% extends "base.html" %}
+{% block title %}{{ '编辑' if char else '添加' }}角色{% endblock %}
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('index') }}">角色</a></li>
+        <li class="breadcrumb-item active">{{ '编辑' if char else '添加' }}</li>
+    </ol>
+</nav>
+<h4 class="mb-3">{{ '编辑' if char else '添加' }}角色</h4>
+<form method="post" class="card p-4 shadow-sm mb-3" id="charForm">
+    <div class="row g-3">
+        <div class="col-md-4">
+            <label class="form-label">角色名 <span class="text-danger">*</span></label>
+            <input type="text" name="name" id="charName" class="form-control" required value="{{ char.name.replace('@' + char.server, '') if char else '' }}">
+            <small class="text-muted">不含@服务器后缀</small>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">服务器 <span class="text-danger">*</span></label>
+            <input type="text" name="server" id="charServer" class="form-control" required value="{{ char.server if char else '' }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">精力</label>
+            <input type="text" name="essence" id="charEssence" class="form-control" value="{{ char.essence if char else '0' }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">耐力</label>
+            <input type="text" name="stamina" id="charStamina" class="form-control" value="{{ char.stamina if char else '0' }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">owner</label>
+            <input type="text" name="owner" class="form-control" value="{{ char.owner or '' if char else '' }}">
+        </div>
+        <div class="col-md-5 d-flex align-items-end gap-3">
+            <div class="form-check"><input class="form-check-input" type="checkbox" name="is_dps" id="is_dps" {{ 'checked' if char and char.is_dps else '' }}><label class="form-check-label" for="is_dps">DPS</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox" name="is_n" id="is_n" {{ 'checked' if char and char.is_n else '' }}><label class="form-check-label" for="is_n">奶</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox" name="is_CD" id="is_CD" {{ 'checked' if char and char.is_CD else '' }}><label class="form-check-label" for="is_CD">本周已打</label></div>
+        </div>
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label mb-0">技能配置</label>
+                <div>
+                    <button type="button" class="btn btn-sm btn-outline-danger" id="btnClearSkills"><i class="bi bi-trash3"></i> 清空所有</button>
+                </div>
+            </div>
+            <p class="text-muted small mb-2"><i class="bi bi-info-circle"></i> 勾选技能即可选择，可设置重数（1-10）和不可学</p>
+            <div class="d-flex align-items-center gap-2 mb-2"><input type="text" class="form-control form-control-sm" id="batchInput" placeholder="技能名:重数（如：一刀柄锤:10，多个用空格或换行分隔）" style="flex:1;min-width:300px"><button type="button" class="btn btn-sm btn-outline-primary" id="btnBatchImport"><i class="bi bi-upload"></i> 导入</button></div>
+            <div class="boss-grid">
+{% for b in boss_data %}
+<div class="boss-card">
+    <div class="boss-card-header">
+        <span class="boss-name">{{ b.name }}</span>
+        <span class="boss-stats">
+{% set oc = namespace(v=0) %}{% set uc = namespace(v=0) %}
+{% for s in b.skills %}
+{% if s.name in existing_skills %}{% set oc.v = oc.v + 1 %}{% endif %}
+{% if s.name in existing_skills and existing_skills[s.name].unlearnable %}{% set uc.v = uc.v + 1 %}{% endif %}
+{% endfor %}
+            已学 <strong class="num">{{ oc.v }}</strong>/{{ b.skills|length }}{% if uc.v > 0 %} 不可学 <strong class="num">{{ uc.v }}</strong>{% endif %}
+        </span>
+    </div>
+    <div class="boss-skills">
+{% for s in b.skills %}
+{% set es = existing_skills.get(s.name) %}
+{% set checked = ' checked' if es else '' %}
+{% set tier_val = es.tier if es else 10 %}
+{% set unlearn = ' checked' if es and es.unlearnable else '' %}
+{% set cm = {"黄色":"#ffd43b","绿色":"#51cf66","蓝色":"#339af0","紫色":"#9775fa","橙色":"#ff922b","红色":"#ff6b6b","白色":"#dee2e6","黑色":"#212529"} %}
+{% set c = s.color if s.color and s.color != '-' else '' %}
+{% set border = "border-left:3px solid " + cm[c] + ";" if c in cm else "" %}
+{% set ul_style = " opacity:0.6;background:#fff5f5;" if es and es.unlearnable else "" %}
+        <span class="skill-chip" style="{{ border }}{{ ul_style }}">
+            <input class="form-check-input skill-cb" type="checkbox" name="_skill_cb" value="{{ s.name }}"{{ checked }} onchange="onSkillCheck(this)" style="width:14px;height:14px;margin:0;cursor:pointer;">
+            <input type="hidden" class="skill-hidden" value="{{ s.name }}">
+            <span class="skill-name{{ ' unlearnable-text' if es and es.unlearnable else '' }}">{{ s.name }}</span>
+            <select class="tier-select" name="skill_tier"{{ ' disabled' if not checked }} onchange="onTierChange(this)">
+{% for v in range(10, 0, -1) %}
+                <option value="{{ v }}"{{ ' selected' if v == tier_val else '' }}>{{ v }}</option>
+{% endfor %}
+            </select>
+            <label class="unlearn-label">
+                <input type="checkbox" name="unlearnable" value="{{ s.name }}"{{ unlearn }} onchange="onUnlearnableChange(this)"> 不可学
+            </label>
+        </span>
+{% endfor %}
+    </div>
+</div>
+{% else %}
+<div class="text-center text-muted py-4">暂无BOSS技能数据</div>
+{% endfor %}
+            </div>
+            <div id="hiddenFieldsContainer"></div>
+            <textarea name="skills" id="skillsText" class="d-none">{{ skills_text or '' }}</textarea>
+        </div>
+        <div class="col-12">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> 保存</button>
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">取消</a>
+        </div>
+    </div>
+</form>
+
+<style>
+.boss-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:10px}
+.boss-card{background:#fff;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow:hidden;border:1px solid #eee}
+.boss-card-header{padding:10px 14px 8px;display:flex;justify-content:space-between;align-items:center}
+.boss-card-header .boss-name{font-size:15px;font-weight:600}
+.boss-card-header .boss-stats{font-size:12px;color:#868e96}
+.boss-card-header .boss-stats .num{font-weight:700;font-size:14px}
+.boss-skills{padding:6px 10px 10px;display:flex;flex-wrap:wrap;gap:5px}
+.skill-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:6px;border:1px solid #dee2e6;font-size:12px;transition:all .15s;background:#fff}
+.skill-chip:hover{border-color:#339af0;box-shadow:0 0 0 2px rgba(51,154,240,.15)}
+.skill-chip .skill-name{font-weight:500;white-space:nowrap}
+.skill-chip .skill-name.unlearnable-text{text-decoration:line-through;color:#e03131;opacity:0.7}
+.skill-chip .tier-select{width:auto;min-width:46px;font-size:11px;padding:1px 2px;border-radius:4px;border:1px solid #dee2e6;background:#fff;height:22px}
+.skill-chip .unlearn-label{font-size:10px;color:#868e96;display:inline-flex;align-items:center;gap:2px;cursor:pointer;white-space:nowrap}
+.skill-chip .unlearn-label input{width:12px;height:12px;cursor:pointer}
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function onSkillCheck(cb) {
+    var sel = cb.closest('.skill-chip').querySelector('.tier-select');
+    sel.disabled = !cb.checked;
+    updateStats();
+}
+function onTierChange(sel) {}
+function onUnlearnableChange(cb) {
+    var chip = cb.closest('.skill-chip');
+    var cb2 = chip.querySelector('.skill-cb');
+    var nm = chip.querySelector('.skill-name');
+    if (cb.checked) {
+        chip.style.opacity='0.6'; chip.style.background='#fff5f5'; nm.classList.add('unlearnable-text');
+        if(cb2&&!cb2.checked){cb2.checked=true;var s=chip.querySelector('.tier-select');if(s)s.disabled=false;}
+    } else {
+        chip.style.opacity=''; chip.style.background=''; nm.classList.remove('unlearnable-text');
+    }
+    updateStats();
+}
+function updateStats() {
+    document.querySelectorAll('.boss-card').forEach(function(card) {
+        var o=0,u=0;
+        card.querySelectorAll('.skill-chip').forEach(function(chip) {
+            var cb=chip.querySelector('.skill-cb');
+            if(cb&&cb.checked){o++;var uc=chip.querySelector('input[name="unlearnable"]');if(uc&&uc.checked)u++;}
+        });
+        var st=card.querySelector('.boss-stats');
+        if(st){
+            var t=card.querySelectorAll('.skill-chip').length;
+            st.innerHTML='已学 <strong class="num">'+o+'</strong>/'+t+(u?' 不可学 <strong class="num">'+u+'</strong>':'');
+        }
+    });
+}
+document.getElementById('charForm').addEventListener('submit',function(e){
+    var co=document.getElementById('hiddenFieldsContainer');co.innerHTML='';
+    document.querySelectorAll('.skill-chip').forEach(function(chip){
+        var cb=chip.querySelector('.skill-cb');if(!cb||!cb.checked)return;
+        var h=chip.querySelector('input.skill-hidden');
+        var ts=chip.querySelector('.tier-select');
+        var uc=chip.querySelector('input[name="unlearnable"]');
+        var h1=document.createElement('input');h1.type='hidden';h1.name='skill_name';h1.value=h.value;co.appendChild(h1);
+        var h2=document.createElement('input');h2.type='hidden';h2.name='skill_tier';h2.value=ts.value;co.appendChild(h2);
+        if(uc&&uc.checked){var h3=document.createElement('input');h3.type='hidden';h3.name='unlearnable';h3.value=h.value;co.appendChild(h3);}
+    });
+});
+document.addEventListener('DOMContentLoaded',function(){updateStats();
+    document.getElementById("btnBatchImport").addEventListener("click",function(){
+        var txt=document.getElementById("batchInput").value.trim();if(!txt)return;
+        var parts=txt.split(/\s+|,|，|、|\n/);
+        var found=0;
+        parts.forEach(function(p){p=p.trim();if(!p||p.indexOf(":")<0)return;
+            var ps=p.split(":");var name=ps[0].trim();if(!name)return;
+            var tier=parseInt(ps[1],10)||10;if(tier<1)tier=1;if(tier>10)tier=10;
+            document.querySelectorAll(".skill-chip").forEach(function(chip){
+                var h=chip.querySelector("input.skill-hidden");
+                if(h&&h.value===name){
+                    var cb=chip.querySelector(".skill-cb");
+                    if(cb&&!cb.checked){cb.checked=true;
+                        var sel=chip.querySelector(".tier-select");if(sel){sel.disabled=false;sel.value=tier}found++}
+                }
+            });
+        });
+        if(found>0){updateStats();document.getElementById("batchInput").value="";
+            alert(found+"个技能已导入，共"+document.querySelectorAll(".skill-cb:checked").length+"个");
+        }else{alert("未找到匹配的技能，请检查格式：技能名:重数")}
+    });
+    document.getElementById('btnClearSkills').addEventListener('click',function(){
+        if(!confirm('确定清空所有已选技能？'))return;
+        document.querySelectorAll('.skill-cb:checked').forEach(function(cb){cb.checked=false;});
+        document.querySelectorAll('input[name="unlearnable"]:checked').forEach(function(cb){cb.checked=false;});
+        document.querySelectorAll('.tier-select').forEach(function(s){s.disabled=true;});
+        document.querySelectorAll('.skill-chip').forEach(function(chip){chip.style.opacity='';chip.style.background='';var n=chip.querySelector('.skill-name');if(n)n.classList.remove('unlearnable-text');});
+        updateStats();
+    });
+});
+</script>
+{% endblock %}
