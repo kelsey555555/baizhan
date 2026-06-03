@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Skill Info{% endblock %}
+{% block content %}
+<h4 class="mb-3"><i class="bi bi-stars"></i> Skill Info (技能详细信息)</h4>
+<form method="get" class="mb-3">
+    <div class="input-group">
+        <input type="text" name="q" class="form-control" placeholder="Search skill name or effect" value="{{ q }}">
+        <button class="btn btn-primary"><i class="bi bi-search"></i></button>
+    </div>
+</form>
+
+{% if skills %}
+<div class="row g-2">
+    {% for s in skills %}
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100">
+            <div class="card-body p-3">
+                <h6 class="mb-1">
+                    {% if s.color and s.color != '-' %}<span class="badge bg-light text-dark border">{{ s.color }}</span>{% endif %}
+                    {{ s.skill_name }}
+                </h6>
+                <p class="mb-1 small">
+                    {% if s.cooldown and s.cooldown != '-' %}<span class="text-muted">CD:</span> {{ s.cooldown }}<br>{% endif %}
+                    {% if s.effect %}<span class="text-muted">Effect:</span> {{ s.effect }}{% endif %}
+                </p>
+                {% if s.category %}<span class="badge bg-secondary">{{ s.category }}</span>{% endif %}
+                {% if s.is_common %}<span class="badge bg-warning text-dark">常用</span>{% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center text-muted py-5">
+    <i class="bi bi-stars" style="font-size:48px"></i>
+    <p class="mt-2">No skill info yet. Run sync jx3box to fetch.</p>
+</div>
+{% endif %}
+{% endblock %}
