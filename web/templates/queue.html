@@ -1,0 +1,64 @@
+﻿{% extends "base.html" %}
+{% block title %}排表 - 百战助手{% endblock %}
+{% block content %}
+<h4 class="mb-3"><i class="bi bi-grid-3x3"></i> 排表 (10 车 x 3 人)</h4>
+<div class="alert alert-info py-2 small">从左侧【角色池】拖拽角色到任意车位。每车底部【已打】按钮一键标记三人。</div>
+<div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+  <button type="button" class="btn btn-primary btn-sm" id="btnAuto"><i class="bi bi-magic"></i> 智能排表</button>
+  <button type="button" class="btn btn-outline-warning btn-sm" id="btnReset"><i class="bi bi-arrow-counterclockwise"></i> 重置</button>
+  <button type="button" class="btn btn-outline-success btn-sm" id="btnSave"><i class="bi bi-save"></i> 保存</button>
+  <button type="button" class="btn btn-outline-secondary btn-sm" id="btnLoad"><i class="bi bi-folder-open"></i> 加载</button>
+  <span class="ms-auto small text-muted" id="statusBar"></span>
+</div>
+<div class="row g-3">
+  <div class="col-md-2">
+    <div class="card shadow-sm"><div class="card-header bg-light py-2">
+      <span><i class="bi bi-people"></i> 角色池 (<span id="poolCount">0</span>)</span>
+      <input type="text" id="poolFilter" class="form-control form-control-sm mt-1" placeholder="过滤姓名/owner">
+    </div><div class="card-body p-1" style="max-height:780px;overflow-y:auto"><div id="charPool" class="d-flex flex-column gap-1"></div></div></div>
+  </div>
+  <div class="col-md-10"><div class="row g-2" id="carArea"></div></div>
+</div>
+<style>
+.char-card{cursor:grab;padding:4px 8px;border-radius:5px;background:#fff;border:1px solid #dee2e6;font-size:12px;display:flex;align-items:center;gap:4px;user-select:none}
+.char-card:active{cursor:grabbing}
+.char-card:hover{background:#e7f5ff;border-color:#339af0}
+.char-card .name{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btag{font-size:10px;padding:0 4px;border-radius:3px;flex-shrink:0}
+.btag-dps{background:#ffe3e3;color:#c92a2a}
+.btag-n{background:#d3f9d8;color:#2b8a3e}
+.btag-cd{background:#fff3bf;color:#b08900}
+.btag-ok{background:#d3f9d8;color:#2b8a3e}
+.car-col{padding:3px;width:20%}
+.car-card{background:#fff;border:2px solid #e9ecef;border-radius:8px;overflow:hidden}
+.car-card .car-header{padding:4px 8px;border-bottom:1px solid #e9ecef;display:flex;justify-content:space-between;font-size:12px;font-weight:600}
+.car-card .car-slots{padding:3px;min-height:150px;background:#fafbfc}
+.car-slot{min-height:46px;border:2px dashed #dee2e6;border-radius:4px;margin-bottom:3px;padding:2px;background:#fff}
+.car-slot.drag-over{background:#d0ebff;border-color:#339af0}
+.car-slot.filled{background:#f8fff9;border-style:solid;border-color:#b2d8b2}
+.car-actions{display:flex;gap:2px;padding:2px 4px;justify-content:center;border-top:1px dashed #e9ecef}
+.ghost-card{opacity:0.4;background:#ffd43b!important}
+</style>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='sortable.min.js') }}"></script>
+<script>
+const NUM_CARS=10;let allChars=[],placedChars=new Map(),sortables={};
+function renderPool(){const pool=document.getElementById("charPool");const filter=(document.getElementById("poolFilter").value||"").toLowerCase();const placedIds=new Set(placedChars.keys());pool.innerHTML="";let count=0;allChars.forEach(c=>{if(placedIds.has(c.id))return;if(filter&&!((c.name||"").toLowerCase().includes(filter)||(c.owner||"").toLowerCase().includes(filter)))return;pool.appendChild(makeCard(c));count++});document.getElementById("poolCount").textContent=count}
+function makeCard(c){const div=document.createElement("div");div.className="char-card";div.dataset.id=c.id;const tags=[];if(c.is_dps)tags.push('<span class="btag btag-dps">DPS</span>');if(c.is_n)tags.push('<span class="btag btag-n">N</span>');if(c.is_CD)tags.push('<span class="btag btag-cd">已打</span>');else tags.push('<span class="btag btag-ok">未打</span>');const owner=c.owner?'<small class="text-muted" style="font-size:10px;flex-shrink:0">'+c.owner+'</small>':"";div.innerHTML='<span class="name" title="'+c.name+'@'+c.server+'">'+c.name+'</span>'+tags.join("")+owner;return div}
+function updateCar(ci){const card=document.querySelector('.car-card[data-car="'+ci+'"]');if(!card)return;const slots=card.querySelectorAll(".car-slot");let filled=0;slots.forEach((slot,pos)=>{slot.innerHTML="";slot.classList.remove("filled");for(const[id,info]of placedChars){if(info.car===ci&&info.pos===pos){const c=allChars.find(x=>x.id===id);if(c){slot.appendChild(makeCard(c));slot.classList.add("filled");filled++}break}}});card.querySelector(".car-count").textContent=filled}
+function updateAll(){renderPool();for(let i=0;i<NUM_CARS;i++)updateCar(i)}
+function buildCars(){const area=document.getElementById("carArea");area.innerHTML="";for(let i=0;i<NUM_CARS;i++){const col=document.createElement("div");col.className="car-col";col.innerHTML='<div class="car-card" data-car="'+i+'"><div class="car-header"><span class="car-num">'+(i+1)+' 车</span><span class="car-count">0</span></div><div class="car-slots"><div class="car-slot" data-pos="0"></div><div class="car-slot" data-pos="1"></div><div class="car-slot" data-pos="2"></div></div><div class="car-actions"><button class="btn btn-xs btn-outline-danger mark-cd-btn" data-car="'+i+'" style="font-size:10px;padding:1px 5px">✓已打</button></div></div>';area.appendChild(col)}}
+let _st=null;function autoDraft(){const cars=Array.from({length:NUM_CARS},()=>[0,0,0]);for(const[id,info]of placedChars){if(info.car<NUM_CARS)cars[info.car][info.pos]=id}fetch("/api/queue/draft-save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cars})}).catch(()=>{})}
+const _s=placedChars.set.bind(placedChars),_d=placedChars.delete.bind(placedChars),_c=placedChars.clear.bind(placedChars);placedChars.set=function(id,v){const r=_s(id,v);clearTimeout(_st);_st=setTimeout(autoDraft,300);return r};placedChars.delete=function(id){const r=_d(id);clearTimeout(_st);_st=setTimeout(autoDraft,300);return r};placedChars.clear=function(){const r=_c();clearTimeout(_st);_st=setTimeout(autoDraft,300);return r}
+document.addEventListener("click",async function(e){if(!e.target.classList.contains("mark-cd-btn"))return;const car=parseInt(e.target.dataset.car,10);const ids=[];for(const[id,info]of placedChars){if(info.car===car)ids.push(id)}if(ids.length===0){toast("这辆车没有人","warning");return}if(!confirm("标记第"+(car+1)+"车("+ids.length+"人)为【已打】?"))return;const r=await fetch("/api/queue/mark-cd",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({char_ids:ids,cd:1})});const j=await r.json();if(j.ok){ids.forEach(id=>{const c=allChars.find(x=>x.id===id);if(c)c.is_CD=1});updateAll();toast("已标记 "+j.updated+" 人为已打","success")}else toast("失败: "+j.error,"error")})
+function initSortables(){for(const k in sortables){try{sortables[k].destroy()}catch(e){}}sortables={};sortables.pool=new Sortable(document.getElementById("charPool"),{group:"chars",animation:150,ghostClass:"ghost-card",onAdd:(e)=>{const id=parseInt(e.item.dataset.id,10);placedChars.delete(id);updateAll()}});document.querySelectorAll(".car-slot").forEach(slot=>{const car=parseInt(slot.closest(".car-card").dataset.car,10);const pos=parseInt(slot.dataset.pos,10);sortables["s"+car+"-"+pos]=new Sortable(slot,{group:"chars",animation:150,ghostClass:"ghost-card",onAdd:(e)=>{const id=parseInt(e.item.dataset.id,10);placedChars.delete(id);const inCar=[...placedChars.entries()].filter(([_,v])=>v.car===car).length;if(inCar>=3){toast("第"+(car+1)+"车已满3人","warning");updateAll();return}placedChars.set(id,{car,pos});updateCar(car);document.getElementById("poolCount").textContent=allChars.length-placedChars.size}})})}
+document.getElementById("btnAuto").addEventListener("click",async()=>{document.getElementById("statusBar").textContent="计算中...";const r=await fetch("/api/queue/optimize");const j=await r.json();if(!j.ok){toast("失败: "+(j.error||"?"),"error");return}const picked=j.picked_10||j.picked_3||[];if(picked.length>0){placedChars.clear();for(let i=0;i<Math.min(NUM_CARS,picked.length);i++)picked[i].chars.forEach((id,pos)=>placedChars.set(id,{car:i,pos}));updateAll();document.getElementById("statusBar").textContent="已自动填入 "+picked.length+" 个最优车"}});
+document.getElementById("btnReset").addEventListener("click",()=>{if(placedChars.size>0&&!confirm("清空所有车？"))return;placedChars.clear();updateAll();document.getElementById("statusBar").textContent="已重置"});
+document.getElementById("btnSave").addEventListener("click",async()=>{const cars=Array.from({length:NUM_CARS},()=>[0,0,0]);for(const[id,info]of placedChars){if(info.car<NUM_CARS)cars[info.car][info.pos]=id}const r=await fetch("/api/queue/save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cars})});const j=await r.json();if(j.ok)toast("已保存排表","success");else toast("保存失败: "+j.error,"error")});
+document.getElementById("btnLoad").addEventListener("click",async()=>{const r=await fetch("/api/queue/load");const j=await r.json();if(!j.ok||!j.state||!j.state.cars){toast("没有已保存的排表","warning");return}placedChars.clear();j.state.cars.forEach((car,ci)=>{if(Array.isArray(car))car.forEach((id,pos)=>{if(id&&id>0)placedChars.set(id,{car:ci,pos})})});updateAll();toast("已加载","success")});
+document.getElementById("poolFilter").addEventListener("input",renderPool);
+(async function init(){buildCars();const r=await fetch("/api/queue/optimize");const j=await r.json();if(j.ok){allChars=j.all_chars||[];updateAll();let loaded=false;const dr=await fetch("/api/queue/draft-load");const dj=await dr.json();if(dj.ok&&dj.state&&Array.isArray(dj.state.cars)){const hd=dj.state.cars.some(car=>Array.isArray(car)&&car.some(id=>id>0));if(hd){placedChars.clear();dj.state.cars.forEach((car,ci)=>{if(Array.isArray(car))car.forEach((id,pos)=>{if(id&&id>0)placedChars.set(id,{car:ci,pos})})});updateAll();loaded=true;document.getElementById("statusBar").textContent="已恢复上次排表"}}if(!loaded){const lr=await fetch("/api/queue/load");const lj=await lr.json();if(lj.ok&&lj.state&&Array.isArray(lj.state.cars)){const hd=lj.state.cars.some(car=>Array.isArray(car)&&car.some(id=>id>0));if(hd){placedChars.clear();lj.state.cars.forEach((car,ci)=>{if(Array.isArray(car))car.forEach((id,pos)=>{if(id&&id>0)placedChars.set(id,{car:ci,pos})})});updateAll()}}}}initSortables()})();
+</script>
+{% endblock %}
+
