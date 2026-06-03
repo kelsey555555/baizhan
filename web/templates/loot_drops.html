@@ -1,0 +1,58 @@
+﻿{% extends "base.html" %}
+{% block title %}出货待分 - 百战助手{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between mb-3"><h4><i class="bi bi-gift"></i> 出货待分赃记录</h4>
+<button class="btn btn-primary btn-sm" onclick="showAddForm()"><i class="bi bi-plus"></i> 记录出货</button></div>
+<div class="mb-3">
+<label class="form-check form-switch"><input class="form-check-input" type="checkbox" id="pendingOnly" checked onchange="loadList()"><span class="form-check-label">仅显示待分</span></label>
+</div>
+<div class="card shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0"><thead class="table-light"><tr>
+<th>时间</th><th>队员</th><th>掉落</th><th>拿货人</th><th>状态</th><th width="120">操作</th>
+</tr></thead><tbody id="dropBody"><tr><td colspan="6" class="text-center text-muted py-4">加载中...</td></tr></tbody></table></div></div>
+<div class="modal fade" id="addModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+<div class="modal-header"><h5 class="modal-title">记录出货</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body">
+<div class="row g-2 mb-2">
+  <div class="col"><label class="form-label small">角色1</label><select class="form-select form-select-sm" id="fChar1"><option value="">-- 选择 --</option></select></div>
+  <div class="col"><label class="form-label small">角色2</label><select class="form-select form-select-sm" id="fChar2"><option value="">-- 选择 --</option></select></div>
+  <div class="col"><label class="form-label small">角色3</label><select class="form-select form-select-sm" id="fChar3"><option value="">-- 选择 --</option></select></div>
+</div>
+<div class="mb-2"><label class="form-label small">掉落</label><input type="text" class="form-control form-control-sm" id="fSkill" placeholder="输入出的东西" required></div>
+<div class="mb-2"><label class="form-label small">拿货人</label><select class="form-select form-select-sm" id="fChar"><option value="">-- 待定 --</option></select></div>
+
+<div class="mb-2"><label class="form-label small">备注</label><input type="text" class="form-control form-control-sm" id="fNotes" placeholder="可选"></div>
+</div><div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+<button class="btn btn-primary btn-sm" onclick="addDrop()">保存</button></div></div></div></div>
+{% endblock %}
+{% block scripts %}
+<script>
+let allDrops=[],allChars=[];
+async function loadList(){const pending=document.getElementById("pendingOnly").checked;
+const r=await fetch("/api/loot/list?pending="+(pending?"1":"0"));const j=await r.json();
+if(!j.ok)return;allDrops=j.drops;renderTable();}
+async function loadChars(){const r=await fetch("/api/queue/optimize");const j=await r.json();
+if(j.ok)allChars=j.all_chars||[];}
+function renderTable(){const tb=document.getElementById("dropBody");
+if(allDrops.length===0){tb.innerHTML="<tr><td colspan=6 class=text-center class=text-muted class=py-4>暂无记录</td></tr>";return}
+tb.innerHTML=allDrops.map(d=>{const team=[d.char1_name,d.char2_name,d.char3_name].filter(Boolean).join(" / ")||"--";const ch=d.char_name||"--";const st=d.distributed?"<span class=\u0022badge bg-success\u0022>已分</span>":"<span class=\u0022badge bg-warning\u0022>待分</span>";
+const act=d.distributed?"":"<button class=\u0022btn btn-success btn-sm\u0022 onclick=markDistributed("+d.id+")>标记已分</button> ";
+return "<tr><td>"+(d.obtained_at||"")+"</td><td>"+team+"</td><td>"+d.skill_name+"</td><td>"+ch+"</td><td>"+st+"</td><td>"+act+"<button class=\u0022btn btn-danger btn-sm\u0022 onclick=delDrop("+d.id+")>删除</button></td></tr>"}).join("")}
+async function addDrop(){const data={skill_name:document.getElementById("fSkill").value,char_id:document.getElementById("fChar").value||null,char1_id:document.getElementById("fChar1").value||null,char2_id:document.getElementById("fChar2").value||null,char3_id:document.getElementById("fChar3").value||null,notes:document.getElementById("fNotes").value};
+if(!data.skill_name){toast("请输入掉落的技能","error");return}
+const r=await fetch("/api/loot/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});const j=await r.json();
+if(j.ok){bootstrap.Modal.getInstance(document.getElementById("addModal")).hide();loadList();toast("已记录","success")}else toast(j.error,"error")}
+async function markDistributed(id){if(!confirm("标记为已分？"))return;const r=await fetch("/api/loot/"+id+"/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({distributed:1})});
+if((await r.json()).ok)loadList()}
+async function delDrop(id){if(!confirm("删除此记录？"))return;await fetch("/api/loot/"+id+"/delete",{method:"POST"});loadList()}
+function showAddForm(){document.getElementById("fSkill").value="";document.getElementById("fNotes").value="";
+let opts="<option value=\"\">-- 选择 --</option>";allChars.forEach(c=>{opts+="<option value=\""+c.id+"\">"+c.name+" ("+(c.owner||"无")+")</option>"});["fChar1","fChar2","fChar3"].forEach(id=>{const s=document.getElementById(id);s.innerHTML=opts;s.value=""});
+let opts2="<option value=\"\">-- 待定 --</option>";allChars.forEach(c=>{opts2+="<option value=\""+c.id+"\">"+c.name+" ("+(c.owner||"无")+")</option>"});document.getElementById("fChar").innerHTML=opts2;
+new bootstrap.Modal(document.getElementById("addModal")).show()}
+(async function init(){await loadChars();loadList()})();
+</script>
+{% endblock %}
+
+
+
+
+
