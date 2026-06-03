@@ -1,0 +1,182 @@
+﻿{% extends "base.html" %}
+{% block title %}角色列表 - 百战助手{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-people"></i> 角色列表 <span class="text-muted fs-6">({{ characters|length }})</span></h4>
+    <div>
+        <a href="{{ url_for('batch_cd') }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-check2-square"></i> 批量 CD</a>
+        <a href="{{ url_for('character_new') }}" class="btn btn-primary btn-sm"><i class="bi bi-person-plus"></i> 添加角色</a>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>角色名</th>
+                    <th>服务器</th>
+                    <th>owner</th>
+                    <th>精力/耐力</th>
+                    <th>标签</th>
+                    <th>技能</th>
+                    <th>本周</th>
+                    <th style="width:160px">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for c in characters %}
+                <tr data-id="{{ c.id }}">
+                    <td><a href="{{ url_for('character_detail', cid=c.id) }}" class="text-decoration-none">{{ c.display_name }}</a></td>
+                    <td>{{ c.server }}</td>
+                    <td><span class="editable-owner clickable" data-id="{{ c.id }}" data-value="{{ c.owner or '' }}">{{ c.owner or '-' }}</span></td>
+                    <td><small class="text-muted">{{ c.essence }} / {{ c.stamina }}</small></td>
+                    <td>
+                        <div class="d-flex gap-1">
+                            <span class="badge bg-{{ 'danger' if c.is_dps else 'light text-muted' }} editable-tag clickable" data-id="{{ c.id }}" data-field="is_dps" data-value="{{ c.is_dps }}">{{ 'DPS' if c.is_dps else 'dps' }}</span>
+                            <span class="badge bg-{{ 'success' if c.is_n else 'light text-muted' }} editable-tag clickable" data-id="{{ c.id }}" data-field="is_n" data-value="{{ c.is_n }}">{{ '奶' if c.is_n else 'n' }}</span>
+                        </div>
+                    </td>
+                    <td><span class="badge bg-secondary">{{ c.skill_count }}</span></td>
+                    <td>
+                        <span class="editable-cd clickable" data-id="{{ c.id }}" data-value="{{ c.is_CD }}">
+                            {% if c.is_CD %}<i class="bi bi-check-circle-fill cd-done"></i> 已打{% else %}<i class="bi bi-circle cd-undone"></i> 未打{% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('character_detail', cid=c.id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye"></i></a>
+                        <a href="{{ url_for('character_edit', cid=c.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+                        
+                        <button class="btn btn-sm btn-outline-danger btn-del" data-id="{{ c.id }}" data-name="{{ c.display_name }}"><i class="bi bi-trash"></i></button>
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="8" class="text-center text-muted py-4">暂无角色，<a href="{{ url_for('character_new') }}">添加一个</a> 或 <a href="{{ url_for('import_images') }}">批量导入截图</a></td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 删除确认弹窗 -->
+<div class="modal fade" id="delModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> 确认删除</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">确定要删除角色 <strong id="delName"></strong> 吗？</p>
+                <p class="text-muted small mb-0">此操作将同时删除该角色的所有技能数据，无法恢复。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" id="btnDelConfirm"><i class="bi bi-trash"></i> 确认删除</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑 owner 弹窗 -->
+<div class="modal fade" id="ownerModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">修改 owner</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="text" class="form-control" id="ownerInput" placeholder="账号归属人">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="btnOwnerSave">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+let delId = null, ownerId = null;
+
+document.querySelectorAll('.btn-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+        delId = btn.dataset.id;
+        document.getElementById('delName').textContent = btn.dataset.name;
+        new bootstrap.Modal(document.getElementById('delModal')).show();
+    });
+});
+document.getElementById('btnDelConfirm').addEventListener('click', async () => {
+    if (!delId) return;
+    const r = await fetch(`/char/${delId}/delete`, {method: 'POST'});
+    const j = await r.json();
+    if (j.ok) {
+        toast('已删除: ' + j.deleted, 'success');
+        document.querySelector(`tr[data-id="${delId}"]`).remove();
+    } else { toast('删除失败: ' + j.error, 'error'); }
+    bootstrap.Modal.getInstance(document.getElementById('delModal')).hide();
+});
+
+document.querySelectorAll('.editable-cd').forEach(el => {
+    el.addEventListener('click', async () => {
+        const id = el.dataset.id;
+        const newVal = el.dataset.value === '1' ? 0 : 1;
+        const r = await fetch(`/char/${id}/inline-update`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({field: 'is_CD', value: newVal})
+        });
+        if (r.ok) {
+            el.dataset.value = newVal;
+            if (newVal) el.innerHTML = '<i class="bi bi-check-circle-fill cd-done"></i> 已打';
+            else el.innerHTML = '<i class="bi bi-circle cd-undone"></i> 未打';
+            toast('CD 状态已更新', 'success');
+        } else { toast('更新失败', 'error'); }
+    });
+});
+
+document.querySelectorAll('.editable-tag').forEach(el => {
+    el.addEventListener('click', async () => {
+        const id = el.dataset.id, field = el.dataset.field;
+        const newVal = el.dataset.value === '1' ? 0 : 1;
+        const r = await fetch(`/char/${id}/inline-update`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({field, value: newVal})
+        });
+        if (r.ok) {
+            el.dataset.value = newVal;
+            if (field === 'is_dps') {
+                el.className = `badge bg-${newVal ? 'danger' : 'light text-muted'} editable-tag clickable`;
+                el.textContent = newVal ? 'DPS' : 'dps';
+            } else if (field === 'is_n') {
+                el.className = `badge bg-${newVal ? 'success' : 'light text-muted'} editable-tag clickable`;
+                el.textContent = newVal ? '奶' : 'n';
+            }
+            toast('标签已更新', 'success');
+        } else { toast('更新失败', 'error'); }
+    });
+});
+
+document.querySelectorAll('.editable-owner').forEach(el => {
+    el.addEventListener('click', () => {
+        ownerId = el.dataset.id;
+        document.getElementById('ownerInput').value = el.dataset.value || '';
+        new bootstrap.Modal(document.getElementById('ownerModal')).show();
+    });
+});
+document.getElementById('btnOwnerSave').addEventListener('click', async () => {
+    if (!ownerId) return;
+    const val = document.getElementById('ownerInput').value.trim();
+    const r = await fetch(`/char/${ownerId}/inline-update`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({field: 'owner', value: val})
+    });
+    if (r.ok) {
+        const el = document.querySelector(`.editable-owner[data-id="${ownerId}"]`);
+        el.dataset.value = val;
+        el.textContent = val || '-';
+        toast('owner 已更新', 'success');
+    } else { toast('更新失败', 'error'); }
+    bootstrap.Modal.getInstance(document.getElementById('ownerModal')).hide();
+});
+</script>
+{% endblock %}
